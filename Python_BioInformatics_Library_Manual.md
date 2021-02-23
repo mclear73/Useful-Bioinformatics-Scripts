@@ -7,7 +7,10 @@
 ### combineIPC2output() ###
 - This function will compile all IPC2 output *.csv files in the current working directory
 - As of February 16, 2021, it will also automatically parse *N. crassa*, *A. nidulans*, and *C. reinhardtii* protein names for addition to a full annotation
-- This function will output a single excel file titled 'IPC2 Output.xlsx' where a parsed 'IPC2_forAnnot' sheet containing the parsed protein names (limited functionality) and a 'IPC2_FULL' sheet containing all of the compiled IPC2 .csv files  
+- This function will output a single excel file titled 'IPC2 Output.xlsx' where a parsed 'IPC2_forAnnot' sheet containing the parsed protein names (limited functionality) and a 'IPC2_FULL' sheet containing all of the compiled IPC2 .csv files
+
+### compileMycocosum ###
+  
 
 ### queryIPC2(executablePath) ###
 - This function uses selenium to query the IPC2 webpage.

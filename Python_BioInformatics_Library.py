@@ -41,7 +41,7 @@ def batch_iterator(iterator, batch_size):
 #It will deposit .csv files in your downloads folder as if you had manually
 #used IPC2
 #############################################################################
-def split_fasta(File, outputPrefix, length):
+def split_fasta(File, outputPrefix, length=50):
       from Bio import SeqIO
       import os
       direct = os.getcwd()
@@ -52,7 +52,21 @@ def split_fasta(File, outputPrefix, length):
             with open(filename, "w") as handle:
                   count = SeqIO.write(batch, handle, "fasta")
             print("Wrote %i records to %s" % (count, filename))
-            
+
+#Add column that designates if protein may be a small secreted protein based
+# off of SingalP output and peptide length
+def getSSP(DF, signalPname):
+      secreteList = []
+      for a , b in zip(DF['AA Length'], DF[signalPname]):
+            if a <= 400 and b == 'SP(Sec/SPI)':
+                  secreteList.append('SSP')
+            elif a > 400 and b == 'SP(Sec/SPI)':
+                  secreteList.append('Secreted')
+            else:
+                  secreteList.append('Not Exciting')
+      DF['Secreted'] = secreteList
+      newDF = DF
+      return newDF            
 ##Selenium for isoelectric point##
 #############################################################################
 #This function will run IPC2 on all of the protein fasta files in a directory
@@ -146,3 +160,192 @@ def combineIPC2output():
       fixedDF.to_excel(writer,'IPC2_forAnnot', index=False)
       concatenated_df.to_excel(writer,'IPC2_FULL', index=False)
       writer.save()
+      
+#Compiles all annotations files available from mycocosum and outputs it to a single
+#.xlsx file denoted by "outputFile"
+#Note: outputFile and pep must be used!!!
+def compileMycocosum(outputFile, pep, trans="None", KOG="None", KEGG="None", 
+                     GO="None", InterPro="None", SignalP="None", IPC2="None",
+                     CAZy="None", FTFDB="None"):
+      import pandas as pd
+      from Bio import SeqIO
+      
+      #Extract protein ID and gene names from protein FASTA file
+      record = list(SeqIO.parse(pep, "fasta"))
+      rec = [rec.id for rec in record]
+      aa = [rec.seq for rec in record]
+      aspDF = pd.DataFrame(rec)
+      aspDF = aspDF[0].str.split("|", expand = True).rename(columns={0:'Source', 1:'Genome', 2:'Protein ID', 3:'Protein Name'})
+      aspDF['Protein ID'] = aspDF['Protein ID'].astype(str)
+      #Add amino acid sequence
+      aspDF['AA Seq'] = aa
+      aspDF['AA Length'] = aspDF['AA Seq'].str.len()
+
+
+      if KOG != "None":
+            aspKOG = pd.read_csv(KOG, sep = '\t')
+            aspKOG['proteinId'] = aspKOG['proteinId'].astype(str)
+            aspKOG = aspKOG.drop(columns='#transcriptId')
+            #Add KOG data
+            aspDF = aspDF.merge(aspKOG, how='left', left_on='Protein ID', right_on='proteinId').drop(columns= ['proteinId'])
+                                 
+      if KEGG != "None":
+            aspKEGG = pd.read_csv(KEGG, sep = '\t')
+            aspKEGG['#proteinId'] = aspKEGG['#proteinId'].astype(str)
+            #Add KEGG data
+            aspDF = aspDF.merge(aspKEGG, how='left', left_on='Protein ID', right_on='#proteinId').drop(columns= ['#proteinId'])
+                   
+      if GO != "None":
+            aspGO = pd.read_csv(GO, sep = '\t')
+            aspGO['#proteinId'] = aspGO['#proteinId'].astype(str)
+            #Add GO data
+            aspDF = aspDF.merge(aspGO, how='left', left_on='Protein ID', right_on='#proteinId').drop(columns= ['#proteinId'])
+                  
+      if InterPro != "None":
+            aspInterPro = pd.read_csv(InterPro, sep = '\t')
+            aspInterPro['#proteinId'] = aspInterPro['#proteinId'].astype(str)
+            #Add InterPro data
+            aspDF = aspDF.merge(aspInterPro, how='left', left_on='Protein ID', right_on='#proteinId').drop(columns= ['#proteinId'])
+                        
+      if SignalP != "None":
+            aspSignalP = pd.read_csv(SignalP)
+            aspSignalP['Protein'] = aspSignalP['Protein'].astype(str)
+            #Add signalP data
+            aspDF = aspDF.merge(aspSignalP, how='left', left_on='Protein Name', right_on='Protein').drop(columns= ['Protein'])
+                 
+      if trans != "None":
+            #Extract transcript IDs and gene names from transcript FASTA file
+            record = list(SeqIO.parse(trans, "fasta"))
+            rec = [rec.id for rec in record]
+            aspTrans = pd.DataFrame(rec)
+            aspTrans = aspTrans[0].str.split("|", expand = True).rename(columns={0:'Source', 1:'Genome', 2:'Transcript ID', 3:'Protein Name'})
+            aspTrans['Transcript ID'] = aspTrans['Transcript ID'].astype(str)
+            aspDF = aspDF.merge(aspTrans, how='left', left_on='Protein Name', right_on='Protein Name').drop(columns = ['Source_y','Genome_y'])
+            
+      if FTFDB != "None":
+            aspTFDB = pd.read_csv(FTFDB)
+            aspTFDB[' Locus Name'] = aspTFDB[' Locus Name'].astype(str)
+            aspTFDB = aspTFDB.drop(columns=' Species Name')
+            #Add Fungal TFDB data
+            aspDF = aspDF.merge(aspTFDB, how='left', left_on='Protein Name', right_on=' Locus Name').drop(columns=[' Locus Name'])
+     
+      
+      #Add IPC2 data
+      if IPC2 != "None":
+            ipc2 = pd.ExcelFile(IPC2)
+            ipc2DF = pd.read_excel(ipc2, 'IPC2_forAnnot')
+            aspDF = aspDF.merge(ipc2DF, how='left', left_on='Protein Name', right_on='header_x').drop(columns= ['header_x'])
+            
+      if CAZy != "None":
+            caz = pd.ExcelFile(CAZy)
+            cazDF = pd.read_excel(caz, 'Sheet1')
+            if aspDF['Protein Name'].str.contains('NCU').any():
+                  aspDF['Gene Name'] = aspDF['Protein Name'].str[:-2]
+                  aspDF = aspDF.merge(cazDF, how='left', left_on='Gene Name', right_on='Gene').drop(columns= ['Gene'])                  
+            
+            else:            
+                  aspDF = aspDF.merge(cazDF, how='left', left_on='Protein Name', right_on='Gene').drop(columns= ['Gene'])
+            
+      #Determine secreted and SSP based of signalP data and peptide length
+      if SignalP != 'None':
+            getSSP(aspDF, 'Prediction')
+            
+      #Add Lipid binding  
+#      gpsLipid = pd.read_csv(gpsLipid, sep='\t')
+#      names = gpsLipid["ID"].str.split("|", expand = True).drop(columns=[0,1,2]).rename(columns={3:'ID'})
+#      names['match'] = gpsLipid['ID']
+#      newgpsLipid = names.merge(gpsLipid, how='left', left_on='match', right_on='ID').drop(columns=['match', 'ID_y'])
+#      aspDF = aspDF.merge(newgpsLipid, how='left', left_on='Protein Name', right_on='ID_x').drop(columns=['ID_x'])    
+
+      #Output the final annotation file          
+      filename =  outputFile + '.xlsx'                    
+      writer = pd.ExcelWriter(filename)
+      aspDF.to_excel(writer,'FULL', index=False)
+      writer.save()
+      
+#Compiles all of the annotation data for Chlamydomonas reinhardtii
+#This function is specific to C. reinhardtii and is not meant to be adapted
+#to a different organisms
+#This function will also plot the amino acid length distribution and
+#Output some basic statistics about the predict protein length distribution
+def compileChlamAnnot(outputFile, trans, geneName, description, definition, annotation, protFasta,
+                      signalP, Delaux, IPC2, PlantTFDB):
+      import pandas as pd
+      from Bio import SeqIO
+      from scipy import stats
+      import numpy as np
+      import matplotlib.pyplot as plt
+      #Import relevant files
+      chlamName = pd.read_csv(trans, skiprows=[0], delim_whitespace=True)
+      chlamGeneName = pd.read_csv(geneName, sep='\t', 
+                                  names=['Transcript ID', 'Gene Name', 'Alt. Gene Name'])
+      chlamDescription = pd.read_csv(description, sep='\t', 
+                                  names=['Transcript ID', 'Description'])     
+      chlamDefline = pd.read_csv(definition, sep='\t', 
+                                  names=['Transcript ID', 'defLine/pdef', 'Details'])      
+      chlamAnnotation = pd.read_csv(annotation, sep='\t')      
+      CHLAMrecord = list(SeqIO.parse(protFasta, "fasta"))      
+#      predXLS = pd.ExcelFile(predAlgo)
+      delaux = pd.ExcelFile(Delaux)
+      
+      #Add Gene Name
+      chlamName = chlamName.merge(chlamGeneName, how='left', left_on= '#5.5', right_on='Transcript ID').drop(columns=['Transcript ID'])
+                                  
+      #Add Gene Description
+      chlamName = chlamName.merge(chlamDescription, how='left', left_on= '#5.5', right_on='Transcript ID').drop(columns=['Transcript ID'])
+                                 
+      #Add defline/pdef
+      chlamName = chlamName.merge(chlamDefline, how='left', left_on= '#5.5', right_on='Transcript ID').drop(columns=['Transcript ID'])
+                                  
+
+      
+      #Add annotation
+      chlamName = chlamName.merge(chlamAnnotation, how='left', left_on= '#5.5', right_on='transcriptName').drop(columns=['transcriptName'])
+      CHLAMrec = [rec.id for rec in CHLAMrecord]
+      CHLAMaa = [rec.seq for rec in CHLAMrecord]
+      CHLAMDFpep = pd.DataFrame(CHLAMrec)
+      CHLAMDFpep['AA Seq'] = CHLAMaa
+      CHLAMDFpep['AA Length'] = CHLAMDFpep['AA Seq'].str.len()      
+      CHLAMDFpep = CHLAMDFpep[(np.abs(stats.zscore(CHLAMDFpep['AA Length'])) < 3)]
+      proteinTotal = len(CHLAMDFpep)
+      avgProtLength = CHLAMDFpep['AA Length'].mean()
+      f= open("Creinhardtii.txt", "w")
+      print("Total Predicted Proteins = " + str(proteinTotal), file=f)
+      print("Average Protein Length = " + str(avgProtLength), file=f)
+      f.close()
+      CHLAMDFpep.boxplot(column=['AA Length'])
+      plt.savefig("Creinhardtii_AALength.pdf")
+      chlamName = chlamName.merge(CHLAMDFpep, how='left', left_on='#5.5', right_on=0)
+      chlamName =chlamName.drop(columns=[0])
+      
+      #Add PredAlgo, removed because PredAlgo appears to be drepecated
+#      predDF = pd.read_excel(predXLS, 'Sheet1')   
+#      chlamName = chlamName.merge(predDF, how='left', left_on='3.1', right_on='full ID (most v3)')
+#      chlamName = chlamName.drop(columns=['full ID (most v3)'])
+
+      #Add Delaux annotation for CSSP  
+      delauxGenes = pd.read_excel(delaux, 'Sheet1')
+      chlamName = chlamName.merge(delauxGenes, how='left', left_on='#5.5', right_on='#5.5') 
+                                  
+      #Add SignalP
+      sigP = pd.read_csv(signalP)
+      chlamName = chlamName.merge(sigP, how='left', left_on='#5.5', right_on='# ID')
+
+      #Add IPC2                                  
+      ipc2 = pd.ExcelFile(IPC2)
+      ipc2DF = pd.read_excel(ipc2, 'IPC2_forAnnot')
+      chlamName = chlamName.merge(ipc2DF, how='left', left_on='#5.5', right_on='header_x').drop(columns= ['header_x'])
+                                  
+      #Add Plant TFDB                                  
+      TFDF = pd.read_csv(PlantTFDB)
+      chlamName = chlamName.merge(TFDF, how='left', left_on='#5.5', right_on='TF_ID').drop(columns= ['TF_ID'])
+                                  
+      #Determine secreted and SSP based of signalP data and peptide length
+      getSSP(chlamName, 'Prediction')
+                       
+      #Generate the output file, 'Creinhardtii_Annotation.xlsx'
+      writer = pd.ExcelWriter(outputFile)
+      chlamName.to_excel(writer,'FULL', index=False)
+      writer.save()
+      
+      
