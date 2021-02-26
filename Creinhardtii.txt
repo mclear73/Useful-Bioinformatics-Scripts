@@ -1,2 +1,0 @@
-Total Predicted Proteins = 19149
-Average Protein Length = 666.0854352707713

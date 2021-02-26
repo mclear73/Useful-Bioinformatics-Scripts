@@ -30,7 +30,8 @@ PBL.compileMycocosum(outputFile= 'AnnotationFiles/Aspergillus_Annotation', trans
                         SignalP='AnnotationFiles/Anidulans_SignalP.csv',
                         IPC2='AnnotationFiles/IPC2 Output.xlsx',
                         CAZy= 'AnnotationFiles/Asp_CAZymes.xlsx',
-                        FTFDB='AnnotationFiles/FTFD_TF_List_Phylym_Ascomycota.csv')
+                        FTFDB='AnnotationFiles/FTFD_TF_List_Phylym_Ascomycota.csv',
+                        Secretome= 'AnnotationFiles/fungSecrete_Anidulans.fasta')
 
 #Compiles N. crassa data. Outputs file called 'Neurospora_Annotation.xlsx'      
 PBL.compileMycocosum(outputFile= 'AnnotationFiles/Neurospora_Annotation', trans='AnnotationFiles/Neucr2_GeneCatalog_transcripts_20130412.nt.fasta',
@@ -42,5 +43,8 @@ PBL.compileMycocosum(outputFile= 'AnnotationFiles/Neurospora_Annotation', trans=
                         SignalP='AnnotationFiles/Ncrassa_SignalP.csv',
                         IPC2='AnnotationFiles/IPC2 Output.xlsx',
                         CAZy='AnnotationFiles/Neur_CAZymes.xlsx',
-                        FTFDB='AnnotationFiles/FTFD_TF_List_Phylym_Ascomycota.csv')
+                        FTFDB='AnnotationFiles/FTFD_TF_List_Phylym_Ascomycota.csv',
+                        Secretome= 'AnnotationFiles/fungSecrete_Ncrassa.fasta')
 
+#Example venn diagram from .csv comparison
+PBL.makeVenn('ExampleUsage/vennInput.csv')         

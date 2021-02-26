@@ -166,7 +166,7 @@ def combineIPC2output():
 #Note: outputFile and pep must be used!!!
 def compileMycocosum(outputFile, pep, trans="None", KOG="None", KEGG="None", 
                      GO="None", InterPro="None", SignalP="None", IPC2="None",
-                     CAZy="None", FTFDB="None"):
+                     CAZy="None", FTFDB="None", Secretome="None"):
       import pandas as pd
       from Bio import SeqIO
       
@@ -245,6 +245,25 @@ def compileMycocosum(outputFile, pep, trans="None", KOG="None", KEGG="None",
             
             else:            
                   aspDF = aspDF.merge(cazDF, how='left', left_on='Protein Name', right_on='Gene').drop(columns= ['Gene'])
+                  
+      if Secretome != "None":
+            print("You included a secretomeDB file. It may take a while to compile.")
+            record = list(SeqIO.parse(Secretome, "fasta"))
+            rec = [rec.id for rec in record]
+            aa = [rec.seq for rec in record]
+            secDF = pd.DataFrame(rec)
+            secDF = secDF[0].str.split("|", expand = True).rename(columns={0:'Source', 
+                         1:'ref#', 2:'ref', 3:'NCBI Name', 
+                         4:'SecretomeDB Description'})
+            secDF['SecretomeDB Description'] = secDF['SecretomeDB Description'].astype(str)
+            secDF['AA Seq'] = aa
+            aspDF = aspDF.merge(secDF[['AA Seq', 'SecretomeDB Description']], 
+                                how='left', left_on='AA Seq', 
+                                right_on='AA Seq', indicator=True)
+            tempDF = aspDF.drop_duplicates(subset=['Protein Name'])
+            length = len(tempDF[tempDF['_merge'] == 'both'])
+            aspDF = aspDF.drop(columns=['_merge'])
+            print("You matched ",length, "peptides of ",len(aa), "present in the secretomeDB.")               
             
       #Determine secreted and SSP based of signalP data and peptide length
       if SignalP != 'None':
@@ -347,5 +366,108 @@ def compileChlamAnnot(outputFile, trans, geneName, description, definition, anno
       writer = pd.ExcelWriter(outputFile)
       chlamName.to_excel(writer,'FULL', index=False)
       writer.save()
-      
-      
+
+#This function takes a .csv file of gene names (or any other shared identifier)
+#And will make a venn diagram for up to 6 comparisons and create a union
+#output file that includes the genes that are shared in all of the categories
+#included in the comparison
+#Note: Column headings are automatically category labels
+#If more than 6 columns are included, only the first 6 columns will be 
+#compared
+def makeVenn(csvFilePath):
+      import pandas as pd
+      from venn import venn
+      DF = pd.read_csv(csvFilePath)
+      catList = list(DF.columns.values)
+      if len(catList) == 2:
+            set1 = set()
+            set2 = set()
+            for i in DF.iloc[:,0]:
+                  set1.add(i)
+            for i in DF.iloc[:,1]:
+                  set2.add(i)
+            unionDict = dict([(catList[0], set1), (catList[1],set2)])
+            union = set1.intersection(set2)
+      elif len(catList) == 3:
+            set1 = set()
+            set2 = set()
+            set3 = set()
+            for i in DF.iloc[:,0]:
+                  set1.add(i)
+            for i in DF.iloc[:,1]:
+                  set2.add(i)
+            for i in DF.iloc[:,2]:
+                  set3.add(i)
+            unionDict = dict([(catList[0], set1), (catList[1],set2), 
+                              (catList[2],set3)])
+            union = set1.intersection(set2, set3)
+      elif len(catList) == 4:
+            set1 = set()
+            set2 = set()
+            set3 = set()
+            set4 = set()
+            for i in DF.iloc[:,0]:
+                  set1.add(i)
+            for i in DF.iloc[:,1]:
+                  set2.add(i)
+            for i in DF.iloc[:,2]:
+                  set3.add(i)
+            for i in DF.iloc[:,3]:
+                  set4.add(i)
+            unionDict = dict([(catList[0], set1), (catList[1], set2), 
+                             (catList[2], set3), (catList[3], set4)])
+            union = set1.intersection(set2, set3, set4)
+      elif len(catList) == 5:
+            set1 = set()
+            set2 = set()
+            set3 = set()
+            set4 = set()
+            set5 = set()
+            for i in DF.iloc[:,0]:
+                  set1.add(i)
+            for i in DF.iloc[:,1]:
+                  set2.add(i)
+            for i in DF.iloc[:,2]:
+                  set3.add(i)
+            for i in DF.iloc[:,3]:
+                  set4.add(i)
+            for i in DF.iloc[:,4]:
+                  set5.add(i)
+            unionDict = dict([(catList[0], set1), (catList[1], set2), 
+                             (catList[2], set3), (catList[3], set4), 
+                             (catList[4], set5)])
+            union = set1.intersection(set2, set3, set4, set5)
+      elif len(catList) == 6:
+            set1 = set()
+            set2 = set()
+            set3 = set()
+            set4 = set()
+            set5 = set()
+            set6 = set()
+            for i in DF.iloc[:,0]:
+                  set1.add(i)
+            for i in DF.iloc[:,1]:
+                  set2.add(i)
+            for i in DF.iloc[:,2]:
+                  set3.add(i)
+            for i in DF.iloc[:,3]:
+                  set4.add(i)
+            for i in DF.iloc[:,4]:
+                  set5.add(i)
+            for i in DF.iloc[:,5]:
+                  set6.add(i)
+            unionDict = dict([(catList[0], set1), (catList[1], set2), 
+                             (catList[2], set3), (catList[3], set4), 
+                             (catList[4], set5), (catList[5], set6)])
+            union = set1.intersection(set2, set3, set4, set5, set6)
+      if len(catList) >=2:
+            unionDF = pd.DataFrame(union)
+            figure = venn(unionDict)
+            writer = pd.ExcelWriter('Venn Output.xlsx')
+            unionDF.to_excel(writer,'Union', index=False)
+            writer.save()
+            return figure, unionDF
+            if len(catList) > 6:
+                  print("More than 6 columns were included in dataset. Only the first 6 columns are included in this analysis.")
+      elif len(catList) == 1:
+            print("Only one column is included. There is nothing to compare.")
