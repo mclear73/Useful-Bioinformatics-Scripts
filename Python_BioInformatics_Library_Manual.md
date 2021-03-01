@@ -26,6 +26,23 @@
 - You do not have to include all of these files for the compilation to work, however you must specify outputFile and include a peptide fasta file for the function to run and compile any information. 
 - For usage example see [ExampleUsage](https://github.com/mclear73/Useful-Bioinformatics-Scripts/tree/main/ExampleUsage) Directory
 
+### extractFromCSV() ###
+		extractFromCSV(annotationCSV, genesCSV, geneIdentifier, outputFile, delaux='None')
+- This function will extract key genes of interest based on a string match. This can be used to extract groups of genes of interest from an annotation file
+- Required arguments:
+	- 1) `annotationCSV=` an annotation file in .csv format. 
+	- 2) `genesCSV=` A .csv file with column headings being the gene group names of interest and the values underneath the column the extraction keywords. 
+	- 3) `geneIdentifier=` A geneIdentifier value that specifies the column name to be used to match with differential expression data downstream. If unsure which column to specify, just specify a column heading that identifies the transcript, protein, or gene name.
+	- 4) `outputFile=` Full output file name as .xlsx.
+- Optional arguments:
+	- `delaux=` specify whether SYM pathway are desired to be extracted. This will except any string value. Default value is 'None'
+- - For usage example see [ExampleUsage](https://github.com/mclear73/Useful-Bioinformatics-Scripts/tree/main/ExampleUsage) Directory
+
+### KeywordExtract() ###
+		KeywordExtract(annotationDF, DFColumn, geneIdentifier)
+- This function is meant to be used by extractFromCSV(). It is not recommended to use this function on its own
+- This function will extract keywords provided in the form of a dataframe column from an annotation dataframe. The geneIdentifier value should be the column in the annotation file that will be used to match with the differential expression data.
+
 ### queryIPC2() ###
     queryIPC2(executablePath)
 - This function uses selenium to query the IPC2 webpage.

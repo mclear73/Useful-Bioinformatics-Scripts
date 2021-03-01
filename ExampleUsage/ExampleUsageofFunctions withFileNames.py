@@ -47,4 +47,11 @@ PBL.compileMycocosum(outputFile= 'AnnotationFiles/Neurospora_Annotation', trans=
                         Secretome= 'AnnotationFiles/fungSecrete_Ncrassa.fasta')
 
 #Example venn diagram from .csv comparison
-PBL.makeVenn('ExampleUsage/vennInput.csv')         
+PBL.makeVenn('ExampleUsage/vennInput.csv')  
+
+#Example gene Extraction with SYM pathway extraction
+PBL.extractFromCSV(annotationCSV='G:/Shared drives/Hom Lab - Franken Lichens/Data Analysis/Annotation Files and Compilation Code/Test/Creinhardtii_Annotation.xlsx', 
+               genesCSV='AnnotationFiles/geneExtract_CHLAM.csv', 
+               geneIdentifier='locusName', 
+               outputFile='CHLAM_Genes of Interest.xlsx', 
+               delaux='yes')         

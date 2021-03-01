@@ -471,3 +471,47 @@ def makeVenn(csvFilePath):
                   print("More than 6 columns were included in dataset. Only the first 6 columns are included in this analysis.")
       elif len(catList) == 1:
             print("Only one column is included. There is nothing to compare.")
+
+#This function will extract keywords provided in the form of a dataframe column
+#From an annotation dataframe
+#The geneIdentifier value should be the column in the annotation file that will 
+#be used to match with the differential expression data
+###NOTE: This is supposed to be used as part fo the extractFromCSV() function
+###It is not recommended to use this function outside of the extractFromCSV() function           
+def KeywordExtract(annotationDF, DFColumn, geneIdentifier):
+      import pandas as pd
+      DFColumn = DFColumn.dropna()
+      DFColumn = DFColumn.astype(str)      
+      listString = '|'.join(DFColumn)     
+      DF = annotationDF[annotationDF.apply(lambda row: row.astype(str).str.contains(listString,
+                                            case=False).any(), axis=1)]
+      DF = DF.drop_duplicates(subset=[geneIdentifier])
+#      geneList = pd.DataFrame()
+#      geneList[geneIdentifier] = DF[geneIdentifier]
+      return DF
+
+#This function will extract key genes of interest based on a string match. This 
+#Can be used to extract groups of genes of interest from an annotation file
+#This function requires 1) an annotation file in .csv format. 2) A .csv file with
+#column headings being the gene group names of interest and the values underneath the column
+#the extraction keywords. 3) A geneIdentifier value that specifies the column name
+#to be used to match with differential expression data downstream. 4) Full output
+#file name as .xlsx. and 5) [optional] specify whether SYM pathway are desired to be extracted
+def extractFromCSV(annotationCSV, genesCSV, geneIdentifier, outputFile, delaux='None'):
+      import pandas as pd
+      AnnotDF = pd.read_csv(annotationCSV)
+      genesDF = pd.read_csv(genesCSV)
+      cols = list(genesDF)
+      writer = pd.ExcelWriter('Genes of Interest.xlsx')
+      for i in cols:
+            temp = KeywordExtract(AnnotDF, genesDF[i], geneIdentifier)
+            temp.to_excel(writer, i, index=False)
+      ssps = AnnotDF[AnnotDF['Secreted'] == 'SSP'].drop_duplicates(subset=[geneIdentifier])
+      secreted = AnnotDF[AnnotDF['Secreted'] == 'Secreted'].drop_duplicates(subset=[geneIdentifier])
+      if delaux != 'None':
+            SYM = AnnotDF.dropna(subset=['Delaux et al. 2015']).drop_duplicates(subset=[geneIdentifier])
+            SYM.to_excel(writer, 'SYM', index=False)            
+      ssps.to_excel(writer, 'SSPs', index=False)
+      secreted.to_excel(writer, 'Secrted', index=False)
+      writer.save()
+      
